@@ -1,0 +1,78 @@
+---
+title: "EDLD 653 Final"
+author: "Chen Su"
+format: 
+  html:
+    embed-resources: true
+execute: 
+  warning: false
+---
+
+### Part 1. API calls to chess.com 
+
+```{r}
+#| label: part-1-api-call
+
+library(purrr)
+library(httr)
+library(jsonlite)
+
+response <- GET('https://api.chess.com/pub/country/US/players')
+
+player_list <- fromJSON(rawToChar(response$content))$players
+
+# extract first 500 usernames
+player_usernames <- player_list[1:500]
+
+# create function to pull all the columns for each user
+player_data_pull <- function(username) {
+  
+  info <- GET(paste0('https://api.chess.com/pub/player/', username))
+  player_info <- fromJSON(rawToChar(info$content))
+  
+  stats <- GET(paste0('https://api.chess.com/pub/player/', username, '/stats'))
+  player_stats <- fromJSON(rawToChar(stats$content))
+  
+  # Extract rapid stats if available
+  rapid_stats <- player_stats$chess_rapid
+  
+  list(username = username, 
+       name = ifelse(is.null(player_info$name), NA, player_info$name), 
+       number_of_followers = player_info$followers, 
+       location = player_info$location, 
+       last_online = as.POSIXct(
+         player_info$last_online, 
+         origin = "1970-01-01", 
+         tz = "UTC"
+         ), 
+      rapid_last_rating = ifelse(is.null(rapid_stats$last$rating), NA, rapid_stats$last$rating), 
+      rapid_best_rating = ifelse(is.null(rapid_stats$best$rating), NA, rapid_stats$best$rating), 
+      rapid_record_win = ifelse(is.null(rapid_stats$record$wins), NA, rapid_stats$record$wins),
+      rapid_record_loss = ifelse(is.null(rapid_stats$record$losses), NA, rapid_stats$record$losses), 
+      rapid_record_draw = ifelse(is.null(rapid_stats$record$draws), NA, rapid_stats$record$draws)
+  )
+}
+
+players_df <- map_df(player_usernames, player_data_pull)
+
+head(players_df)
+
+```
+
+*Note: Microsoft Copilot was used to assist in troubleshooting the code for rapid stats and date.*
+
+### Part 2. Identify & Remove Duplicate Files
+```{r}
+#| label: part-2-duplicates
+
+list.files("C:/Users/chens/Desktop/Spring 2026/edld653/edld653_final/question_2")
+
+```
+
+
+### Part 3. Multiple Models
+
+### Part 4. Slope Reliability Function
+
+### Part 5. 95% Confidence Interval (CI) 
+
