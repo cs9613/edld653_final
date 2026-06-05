@@ -59,18 +59,66 @@ head(players_df)
 
 ```
 
-*Note: Microsoft Copilot was used to assist in troubleshooting the code for rapid stats and date.*
+*Part 1 Note: Microsoft Copilot was used to assist in troubleshooting the code for rapid stats and date.*
+
+
 
 ### Part 2. Identify & Remove Duplicate Files
 ```{r}
 #| label: part-2-duplicates
 
-list.files("C:/Users/chens/Desktop/Spring 2026/edld653/edld653_final/question_2")
+library(dplyr)
+library(digest)
+
+files <- list.files("C:/Users/chens/Desktop/Spring 2026/edld653/edld653_final/question_2", 
+           full.names = TRUE, recursive = TRUE)
+
+# finding duplicates
+file_hashes <- sapply(files, digest, file = TRUE)
+
+hash_table <- data.frame(
+  file = files,
+  hash = file_hashes
+)
+
+originals <- hash_table[!duplicated(hash_table$hash), ]
+duplicates <- hash_table[duplicated(hash_table$hash), ]
+
+# create duplicate table
+duplicate_table <- inner_join(originals, duplicates, by = "hash") |>
+  select(originals = file.x,
+         duplicates = file.y)
+
+deleted_duplicates <- vapply(duplicate_table$duplicates, file.remove, logical(1))
+
+# check 
+length(list.files("C:/Users/chens/Desktop/Spring 2026/edld653/edld653_final/question_2", 
+                  recursive = TRUE))
 
 ```
 
+*Part 2 Note: Microsoft Copilot was used to assist in finding duplicates using digest package.*
+
+
 
 ### Part 3. Multiple Models
+```{r}
+#| label: models
+
+library(tidyverse)
+library(here)
+library(lme4)
+
+df <- read.csv(here("benchmarks.csv")) |>
+    mutate(wave = case_when(
+                  season == "fall" ~ 0,
+                    season == "winter" ~ 1,
+                    season == "spring" ~ 2)
+    )
+
+
+```
+
 
 ### Part 4. Slope Reliability Function
 
