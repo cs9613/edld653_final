@@ -109,18 +109,101 @@ library(tidyverse)
 library(here)
 library(lme4)
 
-df <- read.csv(here("benchmarks.csv")) |>
+df <- read.csv(here("benchmarks.csv"))
+
+# recode wave and score, nest by grade (3-5) and subject (reading, math)
+
+grade_subject <- df |>
     mutate(wave = case_when(
                   season == "fall" ~ 0,
                     season == "winter" ~ 1,
-                    season == "spring" ~ 2)
-    )
+                    season == "spring" ~ 2)) |> 
+  pivot_longer(cols = c(reading, math),
+               names_to = "subject",
+               values_to = "score") |>
+  group_by(grade, subject) |>
+  nest()
 
+# function for true score variance
+true_score_variance <- function(data) {
+  model <- lme4::lmer(score ~ 1 + wave + (1+wave|sid), REML = FALSE, data = data)
+  VarCorr(model)$sid["wave", "wave"]
+}
+
+# function for observed score variance
+observed_score_variance <- function(data) {
+  data %>%
+    split(.$sid) %>%
+    map(~lm(score ~ 1+ wave, data = .x)) %>%
+    map_dbl(~ coef(.x)["wave"]) %>%
+    var()
+}
+
+slope_table <- grade_subject |>
+  mutate(
+    true_variance = map_dbl(data, true_score_variance),
+    observed_variance  = map_dbl(data, observed_score_variance),
+    slope_reliability = true_variance / observed_variance
+  ) |>
+  select(grade, subject, 
+         true_variance, observed_variance, slope_reliability)
 
 ```
 
+*Part 3 Note: Microsoft Copilot was used to assist in figuring out how to extract the variance of the slope.*
+
+
 
 ### Part 4. Slope Reliability Function
+```{r}
+#| label: slope-reliability-function
+
+cal_slope_reliability <- function(model) {
+ # extracting model data 
+ mod_data <- model.frame(model)
+ 
+ # extracting names of variables used in formulas
+ dv_name <- as.character(formula(model))[2]
+ cluster_name <- names(lme4::ngrps(model))[1]
+ rand_terms <- rownames(lme4::VarCorr(model)[[cluster_name]])
+ time_name   <- rand_terms[rand_terms != "(Intercept)"][1]
+ 
+ # extracting true variance
+ true_variance <- lme4::VarCorr(model)[[cluster_name]][time_name, time_name]
+ 
+ # calculating observed slope variance
+ lm_formula <- as.formula(paste(dv_name, "~ 1 +", time_name))
+  
+  observed_variance <- mod_data |>
+    split(mod_data[[cluster_name]]) |>
+    map(~ lm(lm_formula, data = .x)) |>
+    map_dbl(~ {
+      coef <- coef(.x)
+      if (time_name %in% names(coef)) coef[time_name] else NA_real_
+      }) |>
+    var(na.rm = TRUE)
+  
+  #calculating slope reliability
+  slope_reliability <- true_variance / observed_variance
+}
+
+
+# apply the function
+
+slope_table_function <- grade_subject |>
+  mutate(model = map(data, ~lme4::lmer(score ~ 1 + wave + (1+wave|sid), REML = FALSE, data = .x)),
+         slope_reliability = map_dbl(model, cal_slope_reliability)) |>
+           select(grade, subject, slope_reliability)
+
+```
+
+*Part 4 Note: Google Gemini was used to assist in troubleshooting how to extract the dv names only, function that skips students without enough data to have a slope, and troubleshooting error from split() for observed variance.*
+
 
 ### Part 5. 95% Confidence Interval (CI) 
+```{r}
+#| label: ci-function
+
+
+```
 

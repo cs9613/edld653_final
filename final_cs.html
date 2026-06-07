@@ -2279,16 +2279,16 @@ vertical-align: -.125em;
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(players_df)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 6 × 10
-  username          name        number_of_followers location last_online        
-  &lt;chr&gt;             &lt;chr&gt;                     &lt;int&gt; &lt;chr&gt;    &lt;dttm&gt;             
-1 --untouchable--   Tyler Mart…                  13 Maui, H… 2026-06-05 06:33:18
-2 -cpm-             &lt;NA&gt;                          1 &lt;NA&gt;     2026-06-05 12:32:38
-3 -death-           Mani Hosse…                   8 Austin   2026-06-05 19:14:58
-4 -g-               Hate Lover                  152 &lt;NA&gt;     2026-06-05 19:05:35
-5 -jg-              &lt;NA&gt;                          4 &lt;NA&gt;     2026-06-05 15:04:23
-6 -kingofthecastle- King O&#39;Cas…                  24 Bum F E… 2026-06-05 15:41:37
-# ℹ 5 more variables: rapid_last_rating &lt;int&gt;, rapid_best_rating &lt;int&gt;,
-#   rapid_record_win &lt;lgl&gt;, rapid_record_loss &lt;lgl&gt;, rapid_record_draw &lt;lgl&gt;</code></pre>
+  username       name  number_of_followers last_online         rapid_last_rating
+  &lt;chr&gt;          &lt;chr&gt;               &lt;int&gt; &lt;dttm&gt;                          &lt;int&gt;
+1 -anonymous-    Timo…                   9 2026-06-07 11:59:19              1242
+2 -death-        Mani…                   8 2026-06-07 18:22:57              1016
+3 -kingofthecas… King…                  24 2026-06-07 20:06:04              1626
+4 -not-sure-     Kenn…                   3 2026-06-07 21:45:14               698
+5 -pawnpower-    Nari…                   5 2026-06-07 14:41:24              1341
+6 -redak-        Kim …                   5 2026-06-07 13:17:12              2015
+# ℹ 5 more variables: rapid_best_rating &lt;int&gt;, rapid_record_win &lt;lgl&gt;,
+#   rapid_record_loss &lt;lgl&gt;, rapid_record_draw &lt;lgl&gt;, location &lt;chr&gt;</code></pre>
 </div>
 </div>
 <p><em>Part 1 Note: Microsoft Copilot was used to assist in troubleshooting the code for rapid stats and date.</em></p>
@@ -2332,13 +2332,92 @@ vertical-align: -.125em;
 <section id="part-3.-multiple-models" class="level3">
 <h3 class="anchored" data-anchor-id="part-3.-multiple-models">Part 3. Multiple Models</h3>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(here)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="fu">here</span>(<span class="st">&quot;benchmarks.csv&quot;</span>)) </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(here)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lme4)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="fu">here</span>(<span class="st">&quot;benchmarks.csv&quot;</span>))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># recode wave and score, nest by grade (3-5) and subject (reading, math)</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>grade_subject <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">wave =</span> <span class="fu">case_when</span>(</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>                  season <span class="sc">==</span> <span class="st">&quot;fall&quot;</span> <span class="sc">~</span> <span class="dv">0</span>,</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>                    season <span class="sc">==</span> <span class="st">&quot;winter&quot;</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>                    season <span class="sc">==</span> <span class="st">&quot;spring&quot;</span> <span class="sc">~</span> <span class="dv">2</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(reading, math),</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>               <span class="at">names_to =</span> <span class="st">&quot;subject&quot;</span>,</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>               <span class="at">values_to =</span> <span class="st">&quot;score&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(grade, subject) <span class="sc">|&gt;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">nest</span>()</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="co"># function for true score variance</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>true_score_variance <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  model <span class="ot">&lt;-</span> lme4<span class="sc">::</span><span class="fu">lmer</span>(score <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> wave <span class="sc">+</span> (<span class="dv">1</span><span class="sc">+</span>wave<span class="sc">|</span>sid), <span class="at">REML =</span> <span class="cn">FALSE</span>, <span class="at">data =</span> data)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">VarCorr</span>(model)<span class="sc">$</span>sid[<span class="st">&quot;wave&quot;</span>, <span class="st">&quot;wave&quot;</span>]</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="co"># function for observed score variance</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>observed_score_variance <span class="ot">&lt;-</span> <span class="cf">function</span>(data) {</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  data <span class="sc">%&gt;%</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">split</span>(.<span class="sc">$</span>sid) <span class="sc">%&gt;%</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">map</span>(<span class="sc">~</span><span class="fu">lm</span>(score <span class="sc">~</span> <span class="dv">1</span><span class="sc">+</span> wave, <span class="at">data =</span> .x)) <span class="sc">%&gt;%</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">map_dbl</span>(<span class="sc">~</span> <span class="fu">coef</span>(.x)[<span class="st">&quot;wave&quot;</span>]) <span class="sc">%&gt;%</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    <span class="fu">var</span>()</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>slope_table <span class="ot">&lt;-</span> grade_subject <span class="sc">|&gt;</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">true_variance =</span> <span class="fu">map_dbl</span>(data, true_score_variance),</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">observed_variance  =</span> <span class="fu">map_dbl</span>(data, observed_score_variance),</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">slope_reliability =</span> true_variance <span class="sc">/</span> observed_variance</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(grade, subject, </span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>         true_variance, observed_variance, slope_reliability)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+<p><em>Part 3 Note: Microsoft Copilot was used to assist in figuring out how to extract the variance of the slope.</em></p>
 </section>
 <section id="part-4.-slope-reliability-function" class="level3">
 <h3 class="anchored" data-anchor-id="part-4.-slope-reliability-function">Part 4. Slope Reliability Function</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>cal_slope_reliability <span class="ot">&lt;-</span> <span class="cf">function</span>(model) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a> <span class="co"># extracting model data </span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a> mod_data <span class="ot">&lt;-</span> <span class="fu">model.frame</span>(model)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a> <span class="co"># extracting names of variables used in formulas</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a> dv_name <span class="ot">&lt;-</span> <span class="fu">as.character</span>(<span class="fu">formula</span>(model))[<span class="dv">2</span>]</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a> cluster_name <span class="ot">&lt;-</span> <span class="fu">names</span>(lme4<span class="sc">::</span><span class="fu">ngrps</span>(model))[<span class="dv">1</span>]</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a> rand_terms <span class="ot">&lt;-</span> <span class="fu">rownames</span>(lme4<span class="sc">::</span><span class="fu">VarCorr</span>(model)[[cluster_name]])</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a> time_name   <span class="ot">&lt;-</span> rand_terms[rand_terms <span class="sc">!=</span> <span class="st">&quot;(Intercept)&quot;</span>][<span class="dv">1</span>]</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a> <span class="co"># extracting true variance</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a> true_variance <span class="ot">&lt;-</span> lme4<span class="sc">::</span><span class="fu">VarCorr</span>(model)[[cluster_name]][time_name, time_name]</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a> <span class="co"># calculating observed slope variance</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a> lm_formula <span class="ot">&lt;-</span> <span class="fu">as.formula</span>(<span class="fu">paste</span>(dv_name, <span class="st">&quot;~ 1 +&quot;</span>, time_name))</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  observed_variance <span class="ot">&lt;-</span> mod_data <span class="sc">|&gt;</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">split</span>(mod_data[[cluster_name]]) <span class="sc">|&gt;</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">map</span>(<span class="sc">~</span> <span class="fu">lm</span>(lm_formula, <span class="at">data =</span> .x)) <span class="sc">|&gt;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">map_dbl</span>(<span class="sc">~</span> {</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>      coef <span class="ot">&lt;-</span> <span class="fu">coef</span>(.x)</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (time_name <span class="sc">%in%</span> <span class="fu">names</span>(coef)) coef[time_name] <span class="cf">else</span> <span class="cn">NA_real_</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>      }) <span class="sc">|&gt;</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">var</span>(<span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">#calculating slope reliability</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  slope_reliability <span class="ot">&lt;-</span> true_variance <span class="sc">/</span> observed_variance</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co"># apply the function</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>slope_table_function <span class="ot">&lt;-</span> grade_subject <span class="sc">|&gt;</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">model =</span> <span class="fu">map</span>(data, <span class="sc">~</span>lme4<span class="sc">::</span><span class="fu">lmer</span>(score <span class="sc">~</span> <span class="dv">1</span> <span class="sc">+</span> wave <span class="sc">+</span> (<span class="dv">1</span><span class="sc">+</span>wave<span class="sc">|</span>sid), <span class="at">REML =</span> <span class="cn">FALSE</span>, <span class="at">data =</span> .x)),</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>         <span class="at">slope_reliability =</span> <span class="fu">map_dbl</span>(model, cal_slope_reliability)) <span class="sc">|&gt;</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>           <span class="fu">select</span>(grade, subject, slope_reliability)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><em>Part 4 Note: Google Gemini was used to assist in troubleshooting how to extract the dv names only, function that skips students without enough data to have a slope, and troubleshooting error from split() for observed variance.</em></p>
 </section>
 <section id="part-5.-95-confidence-interval-ci" class="level3">
 <h3 class="anchored" data-anchor-id="part-5.-95-confidence-interval-ci">Part 5. 95% Confidence Interval (CI)</h3>
