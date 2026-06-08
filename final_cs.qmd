@@ -55,7 +55,7 @@ player_data_pull <- function(username) {
 
 players_df <- map_df(player_usernames, player_data_pull)
 
-head(players_df)
+str(players_df)
 
 ```
 
@@ -148,6 +148,8 @@ slope_table <- grade_subject |>
   select(grade, subject, 
          true_variance, observed_variance, slope_reliability)
 
+print(slope_table)
+
 ```
 
 *Part 3 Note: Microsoft Copilot was used to assist in figuring out how to extract the variance of the slope.*
@@ -195,6 +197,8 @@ slope_table_function <- grade_subject |>
          slope_reliability = map_dbl(model, cal_slope_reliability)) |>
            select(grade, subject, slope_reliability)
 
+print(slope_table_function)
+
 ```
 
 *Part 4 Note: Google Gemini was used to assist in troubleshooting how to extract the dv names only, function that skips students without enough data to have a slope, and troubleshooting error from split() for observed variance.*
@@ -204,6 +208,77 @@ slope_table_function <- grade_subject |>
 ```{r}
 #| label: ci-function
 
+bootstrap_slope_reliability <- function(data, group_var, time_var, outcome_var, n_boot = 100) { 
+  # convert variables to characters 
+  group <- deparse1(substitute(group_var)) 
+  time <- deparse1(substitute(time_var)) 
+  outcome <- deparse1(substitute(outcome_var)) 
+  
+  # extract student IDs and counts 
+  unique_clusters <- unique(data[[group]]) 
+  n_clusters <- length(unique_clusters) 
+  
+  # Create a dynamic formula for lmer 
+  formula <- as.formula(paste0( 
+    outcome, " ~ 1 + ", time, " + (1 + ", time, " | bootstrap_id)" 
+  )) 
+  
+  boot_estimates <- map_dbl(1:n_boot, function(b) { 
+    # Sample student IDs with replacement 
+    sampled_id <- base::sample(unique_clusters, size = n_clusters, replace = TRUE) 
+    
+    # Reconstruct the dataset with dummy IDs 
+    boot_data <- map_dfr(seq_along(sampled_id), function(i) { 
+      original_id <- sampled_id[i] 
+      student_rows <- data[data[[group]] == original_id, ] 
+      student_rows[["bootstrap_id"]] <- paste0("boot_", i) 
+      return(student_rows) 
+    }) 
+    
+    # Fit model to the bootstrapped data 
+    boot_model <- tryCatch({ 
+      lmer(formula, data = boot_data, control = lmerControl(calc.derivs = FALSE)) 
+    }, error = function(e) return(NULL)) 
+    
+    if (is.null(boot_model)) return(NA_real_) 
+    
+    # Calculate reliability on the bootstrap model
+    val <- tryCatch({ 
+      cal_slope_reliability(boot_model) 
+    }, error = function(e) return(NA_real_)) 
+    
+    return(val) 
+  })
+  
+  # Extract the 95% Confidence Interval 
+  ci <- quantile(boot_estimates, probs = c(0.025, 0.975), na.rm = TRUE) 
+  
+  return(tibble( 
+    ci_lower = ci[1], 
+    ci_upper = ci[2], 
+    boot_mean = mean(boot_estimates, na.rm = TRUE) 
+  )) 
+}
+
+
+# applying function
+set.seed(123)
+
+slope_reliability_with_ci <- grade_subject |> 
+  mutate(
+    boot_results = map(data, ~ bootstrap_slope_reliability(
+      data = .x,
+      group_var = sid,
+      time_var = wave,
+      outcome_var = score,
+      n_boot = 100
+    ))
+  ) |> 
+  unnest(boot_results) |> 
+  select(grade, subject, boot_mean, ci_lower, ci_upper)
+
+print(slope_reliability_with_ci)
 
 ```
 
+*Part 5 Note: Google Gemini was used to assist in writing the bootstrapping function.*
